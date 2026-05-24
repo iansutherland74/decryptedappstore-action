@@ -1,0 +1,21 @@
+name: Download CineUltra IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download CineUltra IPA
+        uses: level3tjg/decryptedappstore-action@main
+        with:
+          appstore_url: "https://apps.apple.com/us/app/cineultra-immersive-cinema/id6478853637"
+          cache: false
+          path: CineUltra.ipa
+          token: ${{ secrets.SESSION_TOKEN }}
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CineUltra-ipa
+          path: CineUltra.ipa
