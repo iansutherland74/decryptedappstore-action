@@ -78,6 +78,15 @@ runs:
           exit 1
         fi
         versions=$(echo "${versions_response}" | jq .versions)
+        if [[ "${versions}" == "null" || $(echo "${versions}" | jq 'length') -eq 0 ]]; then
+          echo "No decrypted versions found for app ${appstore_id} (${bundle_id})."
+          echo "Check https://armconverter.com/decryptedappstore — the app may not be in the database."
+          devices=$(curl -s "https://itunes.apple.com/lookup?id=${appstore_id}" | jq -r '.results[0].supportedDevices | join(", ")' 2>/dev/null)
+          if echo "${devices}" | grep -qi 'AppleVisionPro'; then
+            echo "This app is Vision Pro-only. Decrypted App Store rarely has visionOS IPAs (uploads come from jailbroken iPhone/iPad)."
+          fi
+          exit 1
+        fi
         available_and_exists() {
           info_url="https://armconverter.com/decryptedappstore/download/$appstore_id/$bundle_id/$(echo "$1" | jq -r .ver)/info"
           info=$(curl -s --cookie "session=${{ inputs.token }}" -H "Referer: https://armconverter.com/decryptedappstore" $info_url)
@@ -133,11 +142,19 @@ runs:
             fi
           done
         fi
-        echo $(echo $version | jq -r .ver)
         if [[ $token == 'null' ]]; then
-          echo "Failed to get download token"
+          echo "Failed to get download token for ${bundle_id} (app ${appstore_id})."
+          echo "Versions returned by decryptedappstore:"
+          echo "${versions}" | jq -r '.[] | "  \(.ver)  exists=\(.exists)"'
+          echo "Checked download availability for each version; none were both exists and available."
+          echo "Open https://armconverter.com/decryptedappstore and search for this app — if it is missing, it cannot be downloaded via this action."
+          devices=$(curl -s "https://itunes.apple.com/lookup?id=${appstore_id}" | jq -r '.results[0].supportedDevices | join(", ")' 2>/dev/null)
+          if echo "${devices}" | grep -qi 'AppleVisionPro'; then
+            echo "Note: Vision Pro-only apps usually are not on Decrypted App Store."
+          fi
           exit 1
         fi
+        echo "Using version $(echo $version | jq -r .ver)"
         echo "token=$token" >> "$GITHUB_OUTPUT"
         echo "version=$(echo $version | jq -r .ver)" >> "$GITHUB_OUTPUT"
 

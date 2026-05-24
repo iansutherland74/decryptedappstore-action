@@ -45,3 +45,7 @@ steps:
       path: App.ipa
       token: "${{ secrets.SESSION_TOKEN }}"
 ```
+
+## CineUltra workflow
+
+The `Download CineUltra IPA` workflow targets [CineUltra](https://apps.apple.com/us/app/cineultra-immersive-cinema/id6478853637), which is **Vision Pro–only**. Decrypted App Store is fed by community uploads from jailbroken **iPhone/iPad** devices, so visionOS apps often have **no decrypted IPA** in the database. If the workflow fails with "Failed to get download token", confirm the app appears on [armconverter.com/decryptedappstore](https://armconverter.com/decryptedappstore) while logged in — if it does not, this action cannot download it.
