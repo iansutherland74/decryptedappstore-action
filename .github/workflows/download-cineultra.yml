@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download CineUltra IPA
-        uses: level3tjg/decryptedappstore-action@main
+        uses: iansutherland74/decryptedappstore-action@main
         with:
           appstore_url: "https://apps.apple.com/us/app/cineultra-immersive-cinema/id6478853637"
           cache: false

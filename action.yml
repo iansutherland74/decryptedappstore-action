@@ -51,8 +51,20 @@ runs:
       shell: bash
       run: |
         appstore_url="${{ inputs.appstore_url }}"
-        echo "appstore-id=$(echo ${appstore_url##*/} | cut -c 3-)" >> "$GITHUB_OUTPUT"
-        echo "bundle-id=$(curl -s "${{ inputs.appstore_url }}" | xmllint --html --xpath "string(//script[@id=\"shoebox-media-api-cache-apps\"])" - 2> /dev/null | jq -r ".[] | fromjson | .d[0].attributes.platformAttributes.ios.bundleId")" >> "$GITHUB_OUTPUT"
+        appstore_id=$(echo "${appstore_url##*/}" | cut -c 3-)
+        echo "appstore-id=${appstore_id}" >> "$GITHUB_OUTPUT"
+        bundle_id=$(curl -sL "${appstore_url}" | xmllint --html --xpath "string(//script[@id=\"shoebox-media-api-cache-apps\"])" - 2> /dev/null | jq -r ".[] | fromjson | .d[0].attributes.platformAttributes.ios.bundleId" 2>/dev/null)
+        if [[ -z "${bundle_id}" || "${bundle_id}" == "null" ]]; then
+          bundle_id=$(curl -s "https://itunes.apple.com/lookup?id=${appstore_id}" | jq -r '.results[0].bundleId')
+        fi
+        if [[ -z "${bundle_id}" || "${bundle_id}" == "null" ]]; then
+          bundle_id=$(curl -sL "${appstore_url}" | grep -oE '"bundleId":"[^"]+"' | head -1 | cut -d'"' -f4)
+        fi
+        if [[ -z "${bundle_id}" || "${bundle_id}" == "null" ]]; then
+          echo "Failed to determine bundle ID for app ${appstore_id}"
+          exit 1
+        fi
+        echo "bundle-id=${bundle_id}" >> "$GITHUB_OUTPUT"
 
     - name: Get download token
       id: get-token
@@ -60,7 +72,12 @@ runs:
       run: |
         appstore_id=${{ steps.app-info.outputs.appstore-id }}
         bundle_id=${{ steps.app-info.outputs.bundle-id }}
-        versions=$(curl -s -X POST --cookie "session=${{ inputs.token }}" "https://armconverter.com/decryptedappstore/versions/$appstore_id/0?country=us" | jq .versions)
+        versions_response=$(curl -s -X POST --cookie "session=${{ inputs.token }}" "https://armconverter.com/decryptedappstore/versions/$appstore_id/0?country=us")
+        if echo "${versions_response}" | jq -e '.loginRequired == true' >/dev/null 2>&1; then
+          echo "Session token invalid or expired. Update your SESSION_TOKEN repository secret."
+          exit 1
+        fi
+        versions=$(echo "${versions_response}" | jq .versions)
         available_and_exists() {
           info_url="https://armconverter.com/decryptedappstore/download/$appstore_id/$bundle_id/$(echo "$1" | jq -r .ver)/info"
           info=$(curl -s --cookie "session=${{ inputs.token }}" -H "Referer: https://armconverter.com/decryptedappstore" $info_url)
@@ -79,7 +96,7 @@ runs:
               echo 'null'
               return 0
             fi
-            if [[ ! -z $token && token != 'null' ]]; then
+            if [[ ! -z $token && $token != 'null' ]]; then
               echo $token
               return 0
             fi
